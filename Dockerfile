@@ -1,20 +1,12 @@
-FROM  golang:1.12.4-alpine as  builder
-ENV GO111MODULE=on
-WORKDIR /go/src/bitbucket.com/shrikar007/go-rest-api
-RUN apk add --no-cache protobuf git make bash build-base \
-	&& rm -rf /var/cache/apk/*
-ADD . ./
-RUN  go build -a -o /main .
+FROM node:16-alpine as build-stage
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
-FROM alpine
-WORKDIR /
-RUN apk add --no-cache ca-certificates \
-	&& update-ca-certificates \
-    # cleanup
-    && rm -rf /var/cache/apk/*
-
-COPY --from=builder /main .
-RUN chmod +x main
+# production stage
+FROM nginx:stable-alpine as production-stage
+COPY --from=build-stage /app/dist /usr/share/nginx/html
 EXPOSE 80
-
-ENTRYPOINT ["/main"]
+CMD ["nginx", "-g", "daemon off;"]
